@@ -4,20 +4,26 @@ ARG TARGETARCH=x64
 ARG AGENT_VERSION=18.7.1
 # ARG for optional components, defaults to 1 (enabled), set to 0 to disable
 ARG ADD_DOCKER=1
+# Cloud CLIs
 ARG ADD_AZURE_CLI=1
 ARG ADD_AWS_CLI=1
+# PowerShell and Modules
 ARG ADD_POWERSHELL=1
 ARG ADD_AZURE_PWSH_CLI=1
 ARG ADD_AWS_PWSH_CLI=1
+# K8s components
 ARG ADD_KUBECTL=1
 ARG ADD_KUBELOGIN=1
 ARG ADD_KUSTOMIZE=1
 ARG ADD_HELM=1
-ARG ADD_YQ=1
-ARG ADD_JQ=1
+# IaC
 ARG ADD_TERRAFORM=1
 ARG ADD_OPENTOFU=1
 ARG ADD_TERRASPACE=1
+# Common Tools
+ARG ADD_YQ=1
+ARG ADD_JQ=1
+# Security
 ARG ADD_SUDO=1
 
 LABEL org.opencontainers.image.source=https://github.com/fok666/gitlab-selfhosted-runner
