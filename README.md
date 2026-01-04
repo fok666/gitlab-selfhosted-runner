@@ -1,11 +1,11 @@
 # gitlab-selfhosted-runner
 
-GitLab Self-Hosted Linux Runner on Docker. This project can be used to create customizable Docker images with pre-installed tools for GitLab CI/CD pipelines. Pre-installing commonly used tools speeds up pipeline execution.
+GitLab Self-Hosted Linux Runner. General purpose Docker image with pre-installed tools.
 
 Goals:
 
 - Run anywhere
-- Scalable
+- Auto scalable
 - Self-configurable
 - Feature rich
 - Customizable
@@ -33,7 +33,7 @@ Bundled tools:
 
 ## Build configuration
 
-Supported `--build-arg` variables are listed below to easily customize the runner image based on your requirements. All options default to 1 (enabled).
+Supported `--build-arg` variables are listed below to easily configure the runner image based on your requirements. All options default to 1 (enabled).
 
 - `ADD_DOCKER`: Installs Docker for Docker-in-Docker support
 - `ADD_AZURE_CLI`: Installs Azure-CLI
