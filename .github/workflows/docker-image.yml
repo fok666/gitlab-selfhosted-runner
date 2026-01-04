@@ -214,7 +214,7 @@ jobs:
         continue-on-error: true
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}
           format: 'sarif'
@@ -230,7 +230,7 @@ jobs:
         continue-on-error: true
 
       - name: Run Trivy vulnerability scanner (table output)
-        uses: aquasecurity/trivy-action@0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}
           format: 'table'
