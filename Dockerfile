@@ -109,7 +109,7 @@ RUN test "${ADD_AZURE_CLI}" = "1" || exit 0 && \
 
 # Install latest PowerShell https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-linux
 RUN test "${ADD_POWERSHELL}" = "1" || exit 0 && \
-    curl -sLO "https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb" \
+    curl -sLO "https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb" \
     && dpkg -i packages-microsoft-prod.deb \
     && rm -f packages-microsoft-prod.deb \
     && apt-get update \
