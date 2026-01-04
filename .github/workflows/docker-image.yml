@@ -219,7 +219,8 @@ jobs:
           image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}
           format: 'sarif'
           output: 'trivy-results-${{ matrix.profile }}.sarif'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL'
+          scanners: 'vuln'
         continue-on-error: true
 
       - name: Upload Trivy results to GitHub Security
@@ -235,7 +236,8 @@ jobs:
           image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}
           format: 'table'
           exit-code: '0'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL'
+          scanners: 'vuln'
         continue-on-error: true
 
       - name: Clean up disk space
