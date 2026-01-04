@@ -36,11 +36,20 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: fok666/gitlab-runner
+          images: |
+            fok666/gitlab-runner
+            ghcr.io/${{ github.repository }}
 
       - name: Get the date
         id: date
@@ -60,6 +69,12 @@ jobs:
         with:
           context: .
           push: true
-          tags: fok666/gitlab-runner:${{ steps.extract_branch.outputs.branch }}-${{ steps.date.outputs.date }}, fok666/gitlab-runner:${{ steps.extract_branch.outputs.branch }}-latest, fok666/gitlab-runner:latest
+          tags: |
+            fok666/gitlab-runner:${{ steps.extract_branch.outputs.branch }}-${{ steps.date.outputs.date }}
+            fok666/gitlab-runner:${{ steps.extract_branch.outputs.branch }}-latest
+            fok666/gitlab-runner:latest
+            ghcr.io/${{ github.repository }}:${{ steps.extract_branch.outputs.branch }}-${{ steps.date.outputs.date }}
+            ghcr.io/${{ github.repository }}:${{ steps.extract_branch.outputs.branch }}-latest
+            ghcr.io/${{ github.repository }}:latest
           labels: ${{ steps.meta.outputs.labels }}
 
