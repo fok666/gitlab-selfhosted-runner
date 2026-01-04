@@ -2,6 +2,8 @@
 
 GitLab Self-Hosted Linux Runner. General purpose Docker image with pre-installed tools.
 
+[![CodeQL](https://github.com/fok666/gitlab-selfhosted-runner/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/fok666/gitlab-selfhosted-runner/actions/workflows/github-code-scanning/codeql) [![Dependabot Updates](https://github.com/fok666/gitlab-selfhosted-runner/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/fok666/gitlab-selfhosted-runner/actions/workflows/dependabot/dependabot-updates) [![Docker Image CI](https://github.com/fok666/gitlab-selfhosted-runner/actions/workflows/docker-image.yml/badge.svg)](https://github.com/fok666/gitlab-selfhosted-runner/actions/workflows/docker-image.yml)
+
 Goals:
 
 - Run anywhere
