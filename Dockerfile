@@ -1,8 +1,7 @@
-ARG BASE_VERSION=22.04
-FROM --platform=linux/amd64 ubuntu:${BASE_VERSION}
+FROM ubuntu:24.04
 
 ARG TARGETARCH=x64
-ARG AGENT_VERSION
+ARG AGENT_VERSION=17.7.0
 # ARG for optional components, defaults to 1 (enabled), set to 0 to disable
 ARG ADD_DOCKER=1
 ARG ADD_AZURE_CLI=1
@@ -17,16 +16,17 @@ ARG ADD_HELM=1
 ARG ADD_YQ=1
 ARG ADD_JQ=1
 ARG ADD_TERRAFORM=1
+ARG ADD_OPENTOFU=1
 ARG ADD_TERRASPACE=1
 ARG ADD_SUDO=1
 
-LABEL org.opencontainers.image.source=https://github.com/fok666/github-selfhosted-runner
-LABEL org.opencontainers.image.description="GitHub Self-Hosted Runner"
+LABEL org.opencontainers.image.source=https://github.com/fok666/gitlab-selfhosted-runner
+LABEL org.opencontainers.image.description="GitLab Self-Hosted Runner"
 LABEL org.opencontainers.image.licenses=MIT
 LABEL org.opencontainers.image.authors="Fernando Korndorfer"
 LABEL org.opencontainers.image.version="${AGENT_VERSION}"
 LABEL org.opencontainers.image.base.name="ubuntu"
-LABEL org.opencontainers.image.base.version="22.04"
+LABEL org.opencontainers.image.base.version="24.04"
 
 USER root
 
@@ -47,56 +47,62 @@ RUN echo "APT::Get::Assume-Yes \"true\";" > /etc/apt/apt.conf.d/90assumeyes \
     unzip \
     xz-utils \
     git \
-    netcat \
+    netcat-traditional \
     iputils-ping \
     gss-ntlmssp \
     ucf \
     debsums \
     libcurl4 \
-    libicu70 \
+    libicu-dev \
     libunwind8 \
     libxcb1 \
     libnss3 \
-    libssl3 \
     libssl-dev\
-    liblttng-ust-common1 \
-    liblttng-ust-ctl5 \
-    liblttng-ust1 \
-    libkrb5-3 \
+    libssl3 \
+    liblttng-ust-common1t64 \
+    liblttng-ust-ctl5t64 \
+    liblttng-ust1t64 \
     libnuma1 \
     libdpkg-perl \
     libfile-fcntllock-perl \
     libfile-fnmatch-perl \
     liblocale-gettext-perl \
-    zlib1g \
     && apt-get upgrade \
-    && apt clean
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install sudo...
 RUN test "${ADD_SUDO}" = "1" || exit 0 && \
-    apt-get install -y --no-install-recommends sudo \
+    apt-get update && apt-get install -y --no-install-recommends sudo \
     && apt clean \
+    && rm -rf /var/lib/apt/lists/* \
     && echo "%agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent
 
 # Install Docker
 RUN test "${ADD_DOCKER}" = "1" || exit 0 && \
-    apt-get install -y --no-install-recommends docker.io \
-    && apt clean
+    apt-get update && apt-get install -y --no-install-recommends docker.io \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install awscli
+# Install awscli (official installer for Ubuntu 24.04+)
 RUN test "${ADD_AWS_CLI}" = "1" || exit 0 && \
-    apt-get install -y --no-install-recommends awscli \
-    && apt clean
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm -rf awscliv2.zip aws
 
 # Install jq
 RUN test "${ADD_JQ}" = "1" || exit 0 && \
-    apt-get install -y --no-install-recommends jq \
-    && apt clean
+    apt-get update && apt-get install -y --no-install-recommends jq \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install latest Azure CLI https://learn.microsoft.com/cli/azure/install-azure-cli-linux
 RUN test "${ADD_AZURE_CLI}" = "1" || exit 0 && \
     curl -sLS "https://aka.ms/InstallAzureCLIDeb" | bash \
     && apt clean \
+    && rm -rf /var/lib/apt/lists/* \
     && az config set extension.use_dynamic_install=yes_without_prompt \
     && az extension add --name azure-devops \
     && az extension add --name resource-graph
@@ -122,22 +128,25 @@ RUN test "${ADD_POWERSHELL}" = "1" || exit 0 && \
 
 # Install Kubectl - https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
 RUN test "${ADD_KUBECTL}" = "1" || exit 0 && \
-    curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    ARCH=$([ "$TARGETARCH" = "x64" ] && echo "amd64" || echo "arm64") && \
+    curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl" \
     && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
     && rm -f kubectl
 
 # Install Kubelogin https://github.com/Azure/kubelogin/releases
 RUN test "${ADD_KUBELOGIN}" = "1" || exit 0 && \
-    curl -sLO "https://github.com/Azure/kubelogin/releases/download/v$(curl -sI https://github.com/Azure/kubelogin/releases/latest | grep '^location:' | grep -Eo '[0-9]+[.][0-9]+[.][0-9]+')/kubelogin-linux-amd64.zip" \
-    && unzip -j kubelogin-linux-amd64.zip \
+    ARCH=$([ "$TARGETARCH" = "x64" ] && echo "amd64" || echo "arm64") && \
+    curl -sLO "https://github.com/Azure/kubelogin/releases/download/v$(curl -sI https://github.com/Azure/kubelogin/releases/latest | grep '^location:' | grep -Eo '[0-9]+[.][0-9]+[.][0-9]+')/kubelogin-linux-${ARCH}.zip" \
+    && unzip -j kubelogin-linux-${ARCH}.zip \
     && install -o root -g root -m 0755 kubelogin /usr/local/bin/kubelogin \
-    && rm -f kubelogin-linux-amd64.zip kubelogin
+    && rm -f kubelogin-linux-${ARCH}.zip kubelogin
 
 # Install YQ - https://github.com/mikefarah/yq
 RUN test "${ADD_YQ}" = "1" || exit 0 && \
-    curl -sLO "https://github.com/mikefarah/yq/releases/download/v$(curl -sI https://github.com/mikefarah/yq/releases/latest | grep '^location:' | grep -Eo '[0-9]+[.][0-9]+[.][0-9]+')/yq_linux_amd64" \
-    && install -o root -g root -m 0755 yq_linux_amd64 /usr/local/bin/yq \
-    && rm -f yq_linux_amd64
+    ARCH=$([ "$TARGETARCH" = "x64" ] && echo "amd64" || echo "arm64") && \
+    curl -sLO "https://github.com/mikefarah/yq/releases/download/v$(curl -sI https://github.com/mikefarah/yq/releases/latest | grep '^location:' | grep -Eo '[0-9]+[.][0-9]+[.][0-9]+')/yq_linux_${ARCH}" \
+    && install -o root -g root -m 0755 yq_linux_${ARCH} /usr/local/bin/yq \
+    && rm -f yq_linux_${ARCH}
 
 # Install Terraform https://developer.hashicorp.com/terraform/install
 RUN test "${ADD_TERRAFORM}" = "1" || exit 0 && \
@@ -146,6 +155,15 @@ RUN test "${ADD_TERRAFORM}" = "1" || exit 0 && \
     && apt update \
     && apt install -y terraform \
     && apt clean
+
+# Install OpenTofu https://opentofu.org/docs/intro/install/
+RUN test "${ADD_OPENTOFU}" = "1" || exit 0 && \
+    curl -fsSL https://packages.opentofu.org/opentofu/tofu/gpgkey | gpg --dearmor -o /usr/share/keyrings/opentofu-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/opentofu-archive-keyring.gpg] https://packages.opentofu.org/opentofu/tofu/any/ any main" > /etc/apt/sources.list.d/opentofu.list \
+    && apt update \
+    && apt install -y tofu \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Instal Terraspace https://terraspace.cloud/docs/install/
 RUN test "${ADD_TERRASPACE}" = "1" || exit 0 && \
@@ -157,11 +175,12 @@ RUN test "${ADD_TERRASPACE}" = "1" || exit 0 && \
 
 # Install HELM https://helm.sh/docs/intro/install/
 RUN test "${ADD_HELM}" = "1" || exit 0 && \
-    curl -sL https://baltocdn.com/helm/signing.asc | gpg --dearmor -o /usr/share/keyrings/helm.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" > /etc/apt/sources.list.d/helm-stable-debian.list \
+    curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null \
+    && echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" > /etc/apt/sources.list.d/helm-stable-debian.list \
     && apt-get update \
-    && apt-get install helm \
-    && apt clean
+    && apt-get install -y helm \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Kustomize https://kubectl.docs.kubernetes.io/installation/kustomize/
 RUN test "${ADD_KUSTOMIZE}" = "1" || exit 0 && \
@@ -169,23 +188,23 @@ RUN test "${ADD_KUSTOMIZE}" = "1" || exit 0 && \
     && install -o root -g root -m 0755 kustomize /usr/local/bin/kustomize \
     && rm -f kustomize
 
-# Install Azure DevOps Agent
-WORKDIR /azp
-RUN curl -LsS "https://github.com/actions/runner/releases/download/v${AGENT_VERSION}/actions-runner-linux-${TARGETARCH}-${AGENT_VERSION}.tar.gz" | tar -xz \
-    && ./bin/installdependencies.sh
+# Install GitLab Runner
+WORKDIR /runner
+RUN ARCH=$([ "$TARGETARCH" = "x64" ] && echo "amd64" || echo "arm64") && \
+    curl -LsS "https://gitlab-runner-downloads.s3.amazonaws.com/v${AGENT_VERSION}/binaries/gitlab-runner-linux-${ARCH}" -o /usr/local/bin/gitlab-runner && \
+    chmod +x /usr/local/bin/gitlab-runner
 
 # Agent Startup script
 COPY --chmod=0755 ./start.sh .
+COPY --chmod=0755 ./test-tools.sh .
 
-# Create agent user and set up home directory
-RUN useradd -m -d /home/agent agent \
-    && chown -R agent:agent /azp /home/agent
+# Create runner user and set up home directory
+RUN useradd -m -d /home/runner runner \
+    && chown -R runner:runner /runner /home/runner
 
-USER agent
+USER runner
 
 # Option to run the agent as root or not.
 ENV AGENT_ALLOW_RUNASROOT="false"
 
-# ENTRYPOINT [ "./start.sh" ]
-USER root
-ENTRYPOINT [ "/bin/bash" ]
+ENTRYPOINT [ "./start.sh" ]
