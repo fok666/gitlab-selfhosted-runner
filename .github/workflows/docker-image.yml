@@ -424,12 +424,12 @@ jobs:
         id: date
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: Build and push Docker image
-        id: build-push
+      - name: Build and push Docker image (amd64)
+        id: build-push-amd64
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           build-args: |
             ADD_DOCKER=${{ matrix.profile.docker }}
@@ -449,7 +449,99 @@ jobs:
             ADD_TERRASPACE=${{ matrix.profile.terraspace }}
             ADD_SUDO=${{ matrix.profile.sudo }}
           tags: |
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.profile.name }}-amd64
+          cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-amd64
+          sbom: true
+          provenance: true
+        continue-on-error: true
+
+      - name: Build and push Docker image (arm64)
+        id: build-push-arm64
+        if: matrix.profile.name != 'iac-pwsh'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            ADD_DOCKER=${{ matrix.profile.docker }}
+            ADD_AZURE_CLI=${{ matrix.profile.azure_cli }}
+            ADD_AWS_CLI=${{ matrix.profile.aws_cli }}
+            ADD_POWERSHELL=${{ matrix.profile.powershell }}
+            ADD_AZURE_PWSH_CLI=${{ matrix.profile.azure_pwsh }}
+            ADD_AWS_PWSH_CLI=${{ matrix.profile.aws_pwsh }}
+            ADD_KUBECTL=${{ matrix.profile.kubectl }}
+            ADD_KUBELOGIN=${{ matrix.profile.kubelogin }}
+            ADD_KUSTOMIZE=${{ matrix.profile.kustomize }}
+            ADD_HELM=${{ matrix.profile.helm }}
+            ADD_YQ=${{ matrix.profile.yq }}
+            ADD_JQ=${{ matrix.profile.jq }}
+            ADD_TERRAFORM=${{ matrix.profile.terraform }}
+            ADD_OPENTOFU=${{ matrix.profile.opentofu }}
+            ADD_TERRASPACE=0
+            ADD_SUDO=${{ matrix.profile.sudo }}
+          tags: |
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.profile.name }}-arm64
+          cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-arm64
+          sbom: true
+          provenance: true
+        continue-on-error: true
+
+      - name: Create and push multi-arch manifest
+        run: |
+          if [ "${{ matrix.profile.name }}" = "iac-pwsh" ]; then
+            # iac-pwsh: amd64 only
+            docker buildx imagetools create \
+              -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
+              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64
+            
+            docker buildx imagetools create \
+              -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
+              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64
+          else
+            # Other profiles: amd64 + arm64
+            docker buildx imagetools create \
+              -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
+              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64 \
+              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
+            
+            docker buildx imagetools create \
+              -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
+              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64 \
+              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
+          fi
+        continue-on-error: true
+
+      - name: Create additional tags
+        run: |
+          # Create version tags
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }} \
             ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
+          
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }} \
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
+          
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY_IMAGE }}:latest-${{ matrix.profile.name }} \
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
+          
+          docker buildx imagetools create \
+            -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }} \
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
+          
+          docker buildx imagetools create \
+            -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }} \
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
+          
+          docker buildx imagetools create \
+            -t ${{ env.GHCR_IMAGE }}:latest-${{ matrix.profile.name }} \
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
             ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}
             ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }}
             ${{ env.REGISTRY_IMAGE }}:latest-${{ matrix.profile.name }}
@@ -457,11 +549,7 @@ jobs:
             ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}
             ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }}
             ${{ env.GHCR_IMAGE }}:latest-${{ matrix.profile.name }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.profile.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}
-          sbom: true
-          provenance: true
+        continue-on-error: true
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
