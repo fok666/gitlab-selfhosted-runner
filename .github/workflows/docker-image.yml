@@ -34,7 +34,7 @@ env:
 jobs:
   build-and-test:
     name: Build and Test (${{ matrix.profile.name }}, ${{ matrix.platform }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       matrix:
         profile: ${{ github.event_name == 'pull_request' && fromJSON('[{"name":"full","docker":1,"azure_cli":1,"aws_cli":1,"powershell":1,"azure_pwsh":1,"aws_pwsh":1,"kubectl":1,"kubelogin":1,"kustomize":1,"helm":1,"jq":1,"yq":1,"terraform":1,"opentofu":1,"terraspace":1,"sudo":1}]') || fromJSON('[{"name":"full","docker":1,"azure_cli":1,"aws_cli":1,"powershell":1,"azure_pwsh":1,"aws_pwsh":1,"kubectl":1,"kubelogin":1,"kustomize":1,"helm":1,"jq":1,"yq":1,"terraform":1,"opentofu":1,"terraspace":1,"sudo":1},{"name":"minimal","docker":0,"azure_cli":0,"aws_cli":0,"powershell":0,"azure_pwsh":0,"aws_pwsh":0,"kubectl":0,"kubelogin":0,"kustomize":0,"helm":0,"jq":0,"yq":0,"terraform":0,"opentofu":0,"terraspace":0,"sudo":1},{"name":"k8s","docker":1,"azure_cli":0,"aws_cli":0,"powershell":0,"azure_pwsh":0,"aws_pwsh":0,"kubectl":1,"kubelogin":1,"kustomize":1,"helm":1,"jq":1,"yq":1,"terraform":0,"opentofu":0,"terraspace":0,"sudo":1},{"name":"iac","docker":1,"azure_cli":1,"aws_cli":1,"powershell":0,"azure_pwsh":0,"aws_pwsh":0,"kubectl":0,"kubelogin":0,"kustomize":0,"helm":0,"jq":1,"yq":1,"terraform":1,"opentofu":1,"terraspace":1,"sudo":1},{"name":"iac-pwsh","docker":1,"azure_cli":1,"aws_cli":1,"powershell":1,"azure_pwsh":1,"aws_pwsh":1,"kubectl":0,"kubelogin":0,"kustomize":0,"helm":0,"jq":1,"yq":1,"terraform":1,"opentofu":1,"terraspace":1,"sudo":1}]') }}
@@ -130,7 +130,7 @@ jobs:
 
   security-scan:
     name: Security Scan (${{ matrix.profile }}, ${{ matrix.platform }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.platform == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     needs: build-and-test
     strategy:
       matrix:
