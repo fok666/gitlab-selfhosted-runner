@@ -15,6 +15,12 @@ on:
       - 'run.sh'
       - 'test-tools.sh'
       - '.github/workflows/docker-image.yml'
+  workflow_dispatch:
+    inputs:
+      AGENT_VERSION:
+        description: 'Runner version (e.g., 17.9.0). Leave empty to use repository variable or Dockerfile default.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -39,7 +45,14 @@ jobs:
       - name: Extract versions from Dockerfile
         id: versions
         run: |
-          AGENT_VERSION=$(grep '^ARG AGENT_VERSION=' Dockerfile | cut -d'=' -f2)
+          # Use workflow input if provided, else repository variable, else Dockerfile default
+          if [ -n "${{ inputs.AGENT_VERSION }}" ]; then
+            AGENT_VERSION="${{ inputs.AGENT_VERSION }}"
+          elif [ -n "${{ vars.AGENT_VERSION }}" ]; then
+            AGENT_VERSION="${{ vars.AGENT_VERSION }}"
+          else
+            AGENT_VERSION=$(grep '^ARG AGENT_VERSION=' Dockerfile | cut -d'=' -f2)
+          fi
           OS_VERSION=$(grep '^FROM ubuntu:' Dockerfile | cut -d':' -f2)
           echo "agent=${AGENT_VERSION}" >> $GITHUB_OUTPUT
           echo "os=${OS_VERSION}" >> $GITHUB_OUTPUT
@@ -52,7 +65,6 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ env.REGISTRY_IMAGE }}
             ${{ env.GHCR_IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
@@ -311,19 +323,20 @@ jobs:
       - name: Extract versions from Dockerfile
         id: versions
         run: |
-          AGENT_VERSION=$(grep '^ARG AGENT_VERSION=' Dockerfile | cut -d'=' -f2)
+          # Use workflow input if provided, else repository variable, else Dockerfile default
+          if [ -n "${{ inputs.AGENT_VERSION }}" ]; then
+            AGENT_VERSION="${{ inputs.AGENT_VERSION }}"
+          elif [ -n "${{ vars.AGENT_VERSION }}" ]; then
+            AGENT_VERSION="${{ vars.AGENT_VERSION }}"
+          else
+            AGENT_VERSION=$(grep '^ARG AGENT_VERSION=' Dockerfile | cut -d'=' -f2)
+          fi
           OS_VERSION=$(grep '^FROM ubuntu:' Dockerfile | cut -d':' -f2)
           echo "agent=${AGENT_VERSION}" >> $GITHUB_OUTPUT
           echo "os=${OS_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -337,7 +350,6 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ env.REGISTRY_IMAGE }}
             ${{ env.GHCR_IMAGE }}
 
       - name: Get the date
@@ -357,6 +369,7 @@ jobs:
           platforms: linux/amd64
           push: true
           build-args: |
+            AGENT_VERSION=${{ steps.versions.outputs.agent }}
             ADD_DOCKER=${{ matrix.profile.docker }}
             ADD_AZURE_CLI=${{ matrix.profile.azure_cli }}
             ADD_AWS_CLI=${{ matrix.profile.aws_cli }}
@@ -374,7 +387,7 @@ jobs:
             ADD_TERRASPACE=${{ matrix.profile.terraspace }}
             ADD_SUDO=${{ matrix.profile.sudo }}
           tags: |
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.profile.name }}-amd64
           cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-amd64
@@ -391,6 +404,7 @@ jobs:
           platforms: linux/arm64
           push: true
           build-args: |
+            AGENT_VERSION=${{ steps.versions.outputs.agent }}
             ADD_DOCKER=${{ matrix.profile.docker }}
             ADD_AZURE_CLI=${{ matrix.profile.azure_cli }}
             ADD_AWS_CLI=${{ matrix.profile.aws_cli }}
@@ -408,7 +422,7 @@ jobs:
             ADD_TERRASPACE=0
             ADD_SUDO=${{ matrix.profile.sudo }}
           tags: |
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.profile.name }}-arm64
           cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-arm64
@@ -424,19 +438,10 @@ jobs:
           if [ "${{ matrix.profile.name }}" = "iac-pwsh" ]; then
             # iac-pwsh: amd64 only
             docker buildx imagetools create \
-              -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }}
-            
-            docker buildx imagetools create \
               -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
               ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }}
           else
             # Other profiles: amd64 + arm64
-            docker buildx imagetools create \
-              -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }} \
-              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64@${{ steps.build-push-arm64.outputs.digest }}
-            
             docker buildx imagetools create \
               -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
               ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }} \
@@ -450,18 +455,6 @@ jobs:
           
           # Create version tags
           docker buildx imagetools create \
-            -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }} \
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
-          
-          docker buildx imagetools create \
-            -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }} \
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
-          
-          docker buildx imagetools create \
-            -t ${{ env.REGISTRY_IMAGE }}:latest-${{ matrix.profile.name }} \
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
-          
-          docker buildx imagetools create \
             -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }} \
             ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
           
@@ -472,19 +465,12 @@ jobs:
           docker buildx imagetools create \
             -t ${{ env.GHCR_IMAGE }}:latest-${{ matrix.profile.name }} \
             ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }}
-            ${{ env.REGISTRY_IMAGE }}:latest-${{ matrix.profile.name }}
-            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
-            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}
-            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }}
-            ${{ env.GHCR_IMAGE }}:latest-${{ matrix.profile.name }}
         continue-on-error: true
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }}
+          image: ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }}
           format: spdx-json
           output-file: sbom-spdx-${{ matrix.profile.name }}.json
         continue-on-error: true
@@ -501,9 +487,6 @@ jobs:
         if: matrix.profile.name == 'full'
         continue-on-error: true
         run: |
-          docker buildx imagetools create \
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }} \
-            --tag ${{ env.REGISTRY_IMAGE }}:latest
           docker buildx imagetools create \
             ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }} \
             --tag ${{ env.GHCR_IMAGE }}:latest
