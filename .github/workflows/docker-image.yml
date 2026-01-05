@@ -3,12 +3,18 @@ name: Docker Image CI
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - '**/*.md'
+    paths:
+      - 'Dockerfile'
+      - 'run.sh'
+      - 'test-tools.sh'
+      - '.github/workflows/docker-image.yml'
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - '**/*.md'
+    paths:
+      - 'Dockerfile'
+      - 'run.sh'
+      - 'test-tools.sh'
+      - '.github/workflows/docker-image.yml'
 
 permissions:
   contents: read
@@ -338,6 +344,11 @@ jobs:
         id: date
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
+      - name: Clean up disk space before build
+        run: |
+          docker system prune -af --volumes
+          df -h
+
       - name: Build and push Docker image (amd64)
         id: build-push-amd64
         uses: docker/build-push-action@v6
@@ -407,31 +418,36 @@ jobs:
 
       - name: Create and push multi-arch manifest
         run: |
+          # Clean up disk space before creating manifests
+          docker system prune -af
+          
           if [ "${{ matrix.profile.name }}" = "iac-pwsh" ]; then
             # iac-pwsh: amd64 only
             docker buildx imagetools create \
               -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64
+              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }}
             
             docker buildx imagetools create \
               -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64
+              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }}
           else
             # Other profiles: amd64 + arm64
             docker buildx imagetools create \
               -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64 \
-              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
+              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }} \
+              ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64@${{ steps.build-push-arm64.outputs.digest }}
             
             docker buildx imagetools create \
               -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64 \
-              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
+              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }} \
+              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64@${{ steps.build-push-arm64.outputs.digest }}
           fi
-        continue-on-error: true
 
       - name: Create additional tags
         run: |
+          # Clean up disk space
+          docker system prune -af
+          
           # Create version tags
           docker buildx imagetools create \
             -t ${{ env.REGISTRY_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }} \
