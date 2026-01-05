@@ -1,0 +1,49 @@
+name: Weekly Version Check
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'  # Every Sunday at 3 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  check-and-update-version:
+    name: Check and Update Runner Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6
+
+      - name: Get latest runner version
+        id: check
+        run: |
+          chmod +x ./checkRunnerVersion.sh
+          LATEST_VERSION=$(./checkRunnerVersion.sh)
+          echo "Latest runner version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get current AGENT_VERSION variable
+        id: current
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CURRENT_VERSION=$(gh variable get AGENT_VERSION 2>/dev/null || echo "not set")
+          echo "Current AGENT_VERSION: $CURRENT_VERSION"
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update AGENT_VERSION variable if needed
+        if: steps.check.outputs.version != steps.current.outputs.version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Updating AGENT_VERSION from ${{ steps.current.outputs.version }} to ${{ steps.check.outputs.version }}"
+          gh variable set AGENT_VERSION --body "${{ steps.check.outputs.version }}"
+          echo "✅ AGENT_VERSION updated successfully"
+
+      - name: Version up to date
+        if: steps.check.outputs.version == steps.current.outputs.version
+        run: |
+          echo "✅ AGENT_VERSION is already up to date (${{ steps.current.outputs.version }})"
