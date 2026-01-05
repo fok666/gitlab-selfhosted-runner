@@ -115,12 +115,14 @@ RUN test "${ADD_AZURE_CLI}" = "1" || exit 0 && \
 
 # Install latest PowerShell https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-linux
 RUN test "${ADD_POWERSHELL}" = "1" || exit 0 && \
-    curl -sLO "https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb" \
-    && dpkg -i packages-microsoft-prod.deb \
-    && rm -f packages-microsoft-prod.deb \
-    && apt-get update \
-    && apt-get install -y powershell \
-    && apt clean
+    PWSH_VERSION=$(curl -sI https://github.com/PowerShell/PowerShell/releases/latest | grep -i '^location:' | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+') && \
+    PWSH_ARCH=$([ "${TARGETARCH}" = "x64" ] && echo "x64" || echo "${TARGETARCH}") && \
+    curl -sLO https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell-${PWSH_VERSION}-linux-${PWSH_ARCH}.tar.gz && \
+    mkdir -p /opt/microsoft/powershell/7 && \
+    tar -xzf ./powershell-${PWSH_VERSION}-linux-${PWSH_ARCH}.tar.gz -C /opt/microsoft/powershell/7 && \
+    chmod +x /opt/microsoft/powershell/7/pwsh && \
+    ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh && \
+    rm powershell-${PWSH_VERSION}-linux-${PWSH_ARCH}.tar.gz
 
 # Install latest Azure Powershell Modules https://learn.microsoft.com/powershell/azure/install-azps-linux
 RUN test "${ADD_POWERSHELL}" = "1" || exit 0 && \

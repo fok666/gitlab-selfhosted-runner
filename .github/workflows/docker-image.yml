@@ -397,7 +397,6 @@ jobs:
 
       - name: Build and push Docker image (arm64)
         id: build-push-arm64
-        if: matrix.profile.name != 'iac-pwsh'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -435,18 +434,11 @@ jobs:
           # Clean up disk space before creating manifests
           docker system prune -af
           
-          if [ "${{ matrix.profile.name }}" = "iac-pwsh" ]; then
-            # iac-pwsh: amd64 only
-            docker buildx imagetools create \
-              -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }}
-          else
-            # Other profiles: amd64 + arm64
-            docker buildx imagetools create \
-              -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }} \
-              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64@${{ steps.build-push-arm64.outputs.digest }}
-          fi
+          # All profiles: amd64 + arm64
+          docker buildx imagetools create \
+            -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64 \
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
 
       - name: Create additional tags
         run: |
