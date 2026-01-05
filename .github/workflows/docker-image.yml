@@ -33,11 +33,12 @@ env:
 
 jobs:
   build-and-test:
-    name: Build and Test (${{ matrix.profile.name }})
-    runs-on: ubuntu-latest
+    name: Build and Test (${{ matrix.profile.name }}, ${{ matrix.platform }})
+    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       matrix:
         profile: ${{ github.event_name == 'pull_request' && fromJSON('[{"name":"full","docker":1,"azure_cli":1,"aws_cli":1,"powershell":1,"azure_pwsh":1,"aws_pwsh":1,"kubectl":1,"kubelogin":1,"kustomize":1,"helm":1,"jq":1,"yq":1,"terraform":1,"opentofu":1,"terraspace":1,"sudo":1}]') || fromJSON('[{"name":"full","docker":1,"azure_cli":1,"aws_cli":1,"powershell":1,"azure_pwsh":1,"aws_pwsh":1,"kubectl":1,"kubelogin":1,"kustomize":1,"helm":1,"jq":1,"yq":1,"terraform":1,"opentofu":1,"terraspace":1,"sudo":1},{"name":"minimal","docker":0,"azure_cli":0,"aws_cli":0,"powershell":0,"azure_pwsh":0,"aws_pwsh":0,"kubectl":0,"kubelogin":0,"kustomize":0,"helm":0,"jq":0,"yq":0,"terraform":0,"opentofu":0,"terraspace":0,"sudo":1},{"name":"k8s","docker":1,"azure_cli":0,"aws_cli":0,"powershell":0,"azure_pwsh":0,"aws_pwsh":0,"kubectl":1,"kubelogin":1,"kustomize":1,"helm":1,"jq":1,"yq":1,"terraform":0,"opentofu":0,"terraspace":0,"sudo":1},{"name":"iac","docker":1,"azure_cli":1,"aws_cli":1,"powershell":0,"azure_pwsh":0,"aws_pwsh":0,"kubectl":0,"kubelogin":0,"kustomize":0,"helm":0,"jq":1,"yq":1,"terraform":1,"opentofu":1,"terraspace":1,"sudo":1},{"name":"iac-pwsh","docker":1,"azure_cli":1,"aws_cli":1,"powershell":1,"azure_pwsh":1,"aws_pwsh":1,"kubectl":0,"kubelogin":0,"kustomize":0,"helm":0,"jq":1,"yq":1,"terraform":1,"opentofu":1,"terraspace":1,"sudo":1}]') }}
+        platform: ${{ github.event_name == 'pull_request' && fromJSON('["linux/amd64", "linux/arm64"]') || fromJSON('["linux/amd64"]') }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v6
@@ -89,6 +90,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          platforms: ${{ matrix.platform }}
           push: false
           build-args: |
             ADD_DOCKER=${{ matrix.profile.docker }}
@@ -105,52 +107,52 @@ jobs:
             ADD_JQ=${{ matrix.profile.jq }}
             ADD_TERRAFORM=${{ matrix.profile.terraform }}
             ADD_OPENTOFU=${{ matrix.profile.opentofu }}
-            ADD_TERRASPACE=${{ matrix.profile.terraspace }}
+            ADD_TERRASPACE=${{ matrix.platform == 'linux/amd64' && matrix.profile.terraspace || 0 }}
             ADD_SUDO=${{ matrix.profile.sudo }}
-          tags: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile.name }}
+          tags: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.profile.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}
-          outputs: type=docker,dest=/tmp/image-${{ matrix.profile.name }}.tar
+          cache-from: type=gha,scope=${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          outputs: type=docker,dest=/tmp/image-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}.tar
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: docker-image-${{ matrix.profile.name }}
-          path: /tmp/image-${{ matrix.profile.name }}.tar
+          name: docker-image-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/image-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}.tar
           retention-days: 1
 
       - name: Clean up disk space
         if: always()
         run: |
-          rm -f /tmp/image-${{ matrix.profile.name }}.tar
+          rm -f /tmp/image-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}.tar
           docker system prune -af --volumes
 
   security-scan:
-    name: Security Scan (${{ matrix.profile }})
-    runs-on: ubuntu-latest
+    name: Security Scan (${{ matrix.profile }}, ${{ matrix.platform }})
+    runs-on: ${{ matrix.platform == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     needs: build-and-test
     strategy:
       matrix:
         profile: ${{ github.event_name == 'pull_request' && fromJSON('["full"]') || fromJSON('["full", "minimal", "k8s", "iac", "iac-pwsh"]') }}
-    
+        platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64", "arm64"]') || fromJSON('["amd64"]') }}
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v7
         with:
-          name: docker-image-${{ matrix.profile }}
+          name: docker-image-${{ matrix.profile }}-${{ matrix.platform }}
           path: /tmp
 
       - name: Load Docker image
-        run: docker load --input /tmp/image-${{ matrix.profile }}.tar
+        run: docker load --input /tmp/image-${{ matrix.profile }}-${{ matrix.platform }}.tar
         continue-on-error: true
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.33.1
         with:
-          image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}
+          image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}-${{ matrix.platform }}
           format: 'sarif'
-          output: 'trivy-results-${{ matrix.profile }}.sarif'
+          output: 'trivy-results-${{ matrix.profile }}-${{ matrix.platform }}.sarif'
           severity: 'CRITICAL'
           scanners: 'vuln'
         continue-on-error: true
@@ -159,13 +161,13 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: 'trivy-results-${{ matrix.profile }}.sarif'
+          sarif_file: 'trivy-results-${{ matrix.profile }}-${{ matrix.platform }}.sarif'
         continue-on-error: true
 
       - name: Run Trivy vulnerability scanner (table output)
         uses: aquasecurity/trivy-action@0.33.1
         with:
-          image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}
+          image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}-${{ matrix.platform }}
           format: 'table'
           exit-code: '0'
           severity: 'CRITICAL'
@@ -175,7 +177,7 @@ jobs:
       - name: Clean up disk space
         if: always()
         run: |
-          rm -f /tmp/image-${{ matrix.profile }}.tar
+          rm -f /tmp/image-${{ matrix.profile }}-${{ matrix.platform }}.tar
           docker system prune -af --volumes
 
       - name: Clear Trivy cache
@@ -183,13 +185,13 @@ jobs:
         run: rm -rf ~/.cache/trivy
 
   test:
-    name: Test Image (${{ matrix.profile }})
-    runs-on: ubuntu-latest
+    name: Test Image (${{ matrix.profile }}, ${{ matrix.platform }})
+    runs-on: ${{ matrix.platform == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     needs: build-and-test
     strategy:
       matrix:
         profile: ${{ github.event_name == 'pull_request' && fromJSON('["full"]') || fromJSON('["full", "minimal", "k8s", "iac", "iac-pwsh"]') }}
-    
+        platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64", "arm64"]') || fromJSON('["amd64"]') }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v6
@@ -197,15 +199,15 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v7
         with:
-          name: docker-image-${{ matrix.profile }}
+          name: docker-image-${{ matrix.profile }}-${{ matrix.platform }}
           path: /tmp
 
       - name: Load Docker image
-        run: docker load --input /tmp/image-${{ matrix.profile }}.tar
+        run: docker load --input /tmp/image-${{ matrix.profile }}-${{ matrix.platform }}.tar
 
       - name: Test image runs
         run: |
-          docker run --rm --entrypoint /bin/sh ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }} -c "echo 'Container starts successfully'"
+          docker run --rm --entrypoint /bin/sh ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}-${{ matrix.platform }} -c "echo 'Container starts successfully'"
 
       - name: Run test-tools.sh if exists
         run: |
@@ -219,16 +221,17 @@ jobs:
       - name: Clean up disk space
         if: always()
         run: |
-          rm -f /tmp/image-${{ matrix.profile }}.tar
+          rm -f /tmp/image-${{ matrix.profile }}-${{ matrix.platform }}.tar
           docker system prune -af --volumes
 
-  push:
-    name: Push to Registries (${{ matrix.profile.name }})
-    runs-on: ubuntu-latest
+  build-push:
+    name: Build and Push (${{ matrix.profile.name }}, ${{ matrix.platform }})
+    runs-on: ${{ matrix.platform == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     needs: [build-and-test, security-scan, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
+        platform: [amd64, arm64]
         profile:
           - name: full
             docker: 1
@@ -361,12 +364,12 @@ jobs:
           docker system prune -af --volumes
           df -h
 
-      - name: Build and push Docker image (amd64)
-        id: build-push-amd64
+      - name: Build and push Docker image
+        id: build-push
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/${{ matrix.platform }}
           push: true
           build-args: |
             AGENT_VERSION=${{ steps.versions.outputs.agent }}
@@ -384,50 +387,52 @@ jobs:
             ADD_JQ=${{ matrix.profile.jq }}
             ADD_TERRAFORM=${{ matrix.profile.terraform }}
             ADD_OPENTOFU=${{ matrix.profile.opentofu }}
-            ADD_TERRASPACE=${{ matrix.profile.terraspace }}
+            ADD_TERRASPACE=${{ matrix.platform == 'amd64' && matrix.profile.terraspace || 0 }}
             ADD_SUDO=${{ matrix.profile.sudo }}
           tags: |
-            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.profile.name }}-amd64
-          cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-amd64
+          cache-from: type=gha,scope=${{ matrix.profile.name }}-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-${{ matrix.platform }}
           sbom: true
           provenance: true
         continue-on-error: true
 
-      - name: Build and push Docker image (arm64)
-        id: build-push-arm64
-        uses: docker/build-push-action@v6
+  create-manifest:
+    name: Create Multi-Arch Manifest (${{ matrix.profile.name }})
+    runs-on: ubuntu-latest
+    needs: build-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        profile:
+          - name: full
+          - name: minimal
+          - name: k8s
+          - name: iac
+          - name: iac-pwsh
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6
+
+      - name: Extract versions from Dockerfile
+        id: versions
+        run: |
+          AGENT_VERSION=$(grep '^ARG AGENT_VERSION=' Dockerfile | cut -d'=' -f2)
+          OS_VERSION=$(grep '^FROM ubuntu:' Dockerfile | cut -d':' -f2)
+          echo "agent=${AGENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "os=${OS_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          context: .
-          platforms: linux/arm64
-          push: true
-          build-args: |
-            AGENT_VERSION=${{ steps.versions.outputs.agent }}
-            ADD_DOCKER=${{ matrix.profile.docker }}
-            ADD_AZURE_CLI=${{ matrix.profile.azure_cli }}
-            ADD_AWS_CLI=${{ matrix.profile.aws_cli }}
-            ADD_POWERSHELL=${{ matrix.profile.powershell }}
-            ADD_AZURE_PWSH_CLI=${{ matrix.profile.azure_pwsh }}
-            ADD_AWS_PWSH_CLI=${{ matrix.profile.aws_pwsh }}
-            ADD_KUBECTL=${{ matrix.profile.kubectl }}
-            ADD_KUBELOGIN=${{ matrix.profile.kubelogin }}
-            ADD_KUSTOMIZE=${{ matrix.profile.kustomize }}
-            ADD_HELM=${{ matrix.profile.helm }}
-            ADD_YQ=${{ matrix.profile.yq }}
-            ADD_JQ=${{ matrix.profile.jq }}
-            ADD_TERRAFORM=${{ matrix.profile.terraform }}
-            ADD_OPENTOFU=${{ matrix.profile.opentofu }}
-            ADD_TERRASPACE=0
-            ADD_SUDO=${{ matrix.profile.sudo }}
-          tags: |
-            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.profile.name }}-arm64
-          cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-arm64
-          sbom: true
-          provenance: true
-        continue-on-error: true
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get the date
+        id: date
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
       - name: Create and push multi-arch manifest
         run: |
