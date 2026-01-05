@@ -1,23 +1,37 @@
 #!/bin/bash
+set -e
 
-CPU_COUNT=$(lscpu -p=CPU | grep -v "^#" | wc -l)
-MAX_CPU=$(($CPU_COUNT>1 ? 2 : 1))
+# GitLab Runner Stop Script
+# Gracefully stops and removes all GitLab runner containers
 
-# Get URL and PAT from first running instance:
-eval $(sudo docker inspect agent1 | jq -r '. [] | . | .Config.Env[]' | grep "AZP_TOKEN\|AZP_URL")
+echo "Stopping GitLab runners..."
+echo ""
 
-# Graceful agent shutdown
-for R in `seq 1 $MAX_CPU`; do
-  sudo docker exec -ti \
-    -e VSTS_AGENT_INPUT_AUTH="pat" \
-    -e VSTS_AGENT_INPUT_URL="$AZP_URL" \
-    -e VSTS_AGENT_INPUT_TOKEN="$AZP_TOKEN" \
-    agent$R \
-    ./config.sh remove --unattended \
-  && sudo docker stop agent$R \
-  && sudo docker rm agent$R &
+# Get list of running runner containers
+RUNNER_CONTAINERS=$(docker ps --filter "name=gitlab-runner-" --format "{{.Names}}" | sort)
+
+if [ -z "$RUNNER_CONTAINERS" ]; then
+  echo "No running GitLab runner containers found."
+  exit 0
+fi
+
+CONTAINER_COUNT=$(echo "$RUNNER_CONTAINERS" | wc -l | tr -d ' ')
+echo "Found $CONTAINER_COUNT runner container(s)"
+echo ""
+
+# Stop each runner gracefully
+for CONTAINER_NAME in $RUNNER_CONTAINERS; do
+  echo "Stopping $CONTAINER_NAME..."
+  
+  # Try graceful shutdown first (runner will unregister itself via start.sh cleanup)
+  docker stop -t 30 "$CONTAINER_NAME" > /dev/null 2>&1 || true
+  
+  # Remove the container
+  docker rm "$CONTAINER_NAME" > /dev/null 2>&1 || true
+  
+  echo "  $CONTAINER_NAME stopped and removed"
 done
 
-wait
-
+echo ""
+echo "All GitLab runners stopped successfully!"
 exit 0
