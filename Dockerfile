@@ -1,6 +1,6 @@
 FROM ubuntu:24.04
 
-ARG TARGETARCH=x64
+ARG TARGETARCH
 ARG AGENT_VERSION=18.7.1
 # ARG for optional components, defaults to 1 (enabled), set to 0 to disable
 ARG ADD_DOCKER=1
@@ -116,7 +116,7 @@ RUN test "${ADD_AZURE_CLI}" = "1" || exit 0 && \
 # Install latest PowerShell https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-linux
 RUN test "${ADD_POWERSHELL}" = "1" || exit 0 && \
     PWSH_VERSION=$(curl -sI https://github.com/PowerShell/PowerShell/releases/latest | grep -i '^location:' | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+') && \
-    PWSH_ARCH=$([ "${TARGETARCH}" = "x64" ] && echo "x64" || echo "${TARGETARCH}") && \
+    PWSH_ARCH=$([ "${TARGETARCH}" = "amd64" ] && echo "x64" || echo "arm64") && \
     curl -sLO https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell-${PWSH_VERSION}-linux-${PWSH_ARCH}.tar.gz && \
     mkdir -p /opt/microsoft/powershell/7 && \
     tar -xzf ./powershell-${PWSH_VERSION}-linux-${PWSH_ARCH}.tar.gz -C /opt/microsoft/powershell/7 && \
