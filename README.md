@@ -86,40 +86,60 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 sudo systemctl start docker
 sudo systemctl enable docker
 
-# Get the runner startup and stop scripts and make them executable:
+# Get the runner management scripts and make them executable:
 sudo curl -sO https://raw.githubusercontent.com/fok666/gitlab-selfhosted-runner/main/run.sh
 sudo curl -sO https://raw.githubusercontent.com/fok666/gitlab-selfhosted-runner/main/stop.sh
+sudo curl -sO https://raw.githubusercontent.com/fok666/gitlab-selfhosted-runner/main/vmss_monitor.sh
+sudo curl -sO https://raw.githubusercontent.com/fok666/gitlab-selfhosted-runner/main/ec2_monitor.sh
 sudo chmod +x *.sh
 
 # Set the parameters from GitLab:
 export GITLAB_URL="https://gitlab.com"
 export GITLAB_TOKEN="xxxxxxxxxxxxxxxxxxxxxxxxxxx"
-export RUNNER_EXECUTOR="docker"
 export RUNNER_TAGS="docker,linux"
-export RUNNER_DOCKER_IMAGE="ubuntu:24.04"
 
-# Start the runner in privileged mode using the parameters above:
-sudo docker run -d --privileged \
-  -e GITLAB_URL="${GITLAB_URL}" \
-  -e GITLAB_TOKEN="${GITLAB_TOKEN}" \
-  -e RUNNER_EXECUTOR="${RUNNER_EXECUTOR}" \
-  -e RUNNER_TAGS="${RUNNER_TAGS}" \
-  -e RUNNER_DOCKER_IMAGE="${RUNNER_DOCKER_IMAGE}" \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  fok666/gitlab-runner:latest
+# Start the runners in privileged mode, one runner for each vCPU (default), using the parameters above:
+sudo ./run.sh fok666/gitlab-runner:latest $GITLAB_URL $GITLAB_TOKEN $RUNNER_TAGS
+
+# Or specify a custom number of runners (e.g., 4 runners):
+sudo ./run.sh fok666/gitlab-runner:latest $GITLAB_URL $GITLAB_TOKEN $RUNNER_TAGS 4
 ```
 
 
-## Azure VMSS support
+## Cloud Provider Support
 
-This project is designed to use Azure Virtual Machine Scale Sets, but can be used with different settings.
+This project supports graceful shutdown for multiple cloud providers:
 
-- `stop.sh`: Add this script to `/opt/stop.sh` to enable graceful Runner shutdown. Requires SUDO.
+### Azure VMSS (Virtual Machine Scale Sets)
+- `vmss_monitor.sh`: Monitor Azure VMSS scheduled events for termination notices
+- Reference: https://learn.microsoft.com/en-us/azure/virtual-machines/linux/scheduled-events
+
+### AWS EC2 Spot Instances
+- `ec2_monitor.sh`: Monitor EC2 spot instance termination notices
+- Reference: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-instance-termination-notices.html
+
+### Setup
+
+```bash
+# Copy stop script to /opt for monitor scripts to use:
+sudo cp stop.sh /opt/stop.sh
+sudo chmod +x /opt/stop.sh
+
+# For Azure VMSS - check every minute:
+(crontab -l 2>/dev/null; echo "* * * * * /opt/vmss_monitor.sh >> /var/log/vmss_monitor.log 2>&1") | crontab -
+
+# For AWS EC2 Spot - check every 5 seconds:
+(crontab -l 2>/dev/null; echo "* * * * * /opt/ec2_monitor.sh >> /var/log/ec2_monitor.log 2>&1") | crontab -
+(crontab -l 2>/dev/null; echo "* * * * * sleep 5; /opt/ec2_monitor.sh >> /var/log/ec2_monitor.log 2>&1") | crontab -
+(crontab -l 2>/dev/null; echo "* * * * * sleep 10; /opt/ec2_monitor.sh >> /var/log/ec2_monitor.log 2>&1") | crontab -
+(crontab -l 2>/dev/null; echo "* * * * * sleep 15; /opt/ec2_monitor.sh >> /var/log/ec2_monitor.log 2>&1") | crontab -
+```
+
+Both monitor scripts require `curl` and `jq` to be installed.
 
 
 # TO DO
 
 - Add Google Compute Cloud (GCP) CLI bundles
 - Add GKE auth support
-- Improve support for Spot/Preemptive VM instances
-- Improve support for other Cloud providers (AWS, GCP...)
+- Add GCP Preemptible VM support
