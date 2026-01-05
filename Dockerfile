@@ -198,8 +198,8 @@ RUN test "${ADD_KUSTOMIZE}" = "1" || exit 0 && \
 
 # Install GitLab Runner
 WORKDIR /runner
-RUN ARCH=$([ "$TARGETARCH" = "x64" ] && echo "amd64" || echo "arm64") && \
-    curl -LsS "https://gitlab-runner-downloads.s3.amazonaws.com/v${AGENT_VERSION}/binaries/gitlab-runner-linux-${ARCH}" -o /usr/local/bin/gitlab-runner && \
+RUN RUNNER_ARCH=$([ "${TARGETARCH}" = "amd64" ] && echo "amd64" || echo "arm64") && \
+    curl -LsS "https://gitlab-runner-downloads.s3.amazonaws.com/v${AGENT_VERSION}/binaries/gitlab-runner-linux-${RUNNER_ARCH}" -o /usr/local/bin/gitlab-runner && \
     chmod +x /usr/local/bin/gitlab-runner
 
 # Agent Startup script
