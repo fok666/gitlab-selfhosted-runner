@@ -439,13 +439,13 @@ jobs:
             # iac-pwsh: amd64 only
             docker buildx imagetools create \
               -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }}
+              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64
           else
             # Other profiles: amd64 + arm64
             docker buildx imagetools create \
               -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }} \
-              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64@${{ steps.build-push-amd64.outputs.digest }} \
-              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64@${{ steps.build-push-arm64.outputs.digest }}
+              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64 \
+              ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64
           fi
 
       - name: Create additional tags
