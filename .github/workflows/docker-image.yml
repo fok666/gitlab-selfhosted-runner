@@ -107,7 +107,7 @@ jobs:
             ADD_JQ=${{ matrix.profile.jq }}
             ADD_TERRAFORM=${{ matrix.profile.terraform }}
             ADD_OPENTOFU=${{ matrix.profile.opentofu }}
-            ADD_TERRASPACE=${{ matrix.profile.terraspace }}
+            ADD_TERRASPACE=${{ matrix.platform == 'linux/amd64' && matrix.profile.terraspace || 0 }}
             ADD_SUDO=${{ matrix.profile.sudo }}
           tags: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           labels: ${{ steps.meta.outputs.labels }}
