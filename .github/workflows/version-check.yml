@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   check-and-update-version:
@@ -37,7 +36,7 @@ jobs:
       - name: Update AGENT_VERSION variable if needed
         if: steps.check.outputs.version != steps.current.outputs.version
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
         run: |
           echo "Updating AGENT_VERSION from ${{ steps.current.outputs.version }} to ${{ steps.check.outputs.version }}"
           gh variable set AGENT_VERSION --body "${{ steps.check.outputs.version }}"
