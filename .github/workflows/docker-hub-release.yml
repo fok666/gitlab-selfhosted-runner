@@ -37,17 +37,38 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Pull latest image from GHCR
+      - name: Fetch all tags for profile from GitHub Packages
+        id: fetch-tags
         run: |
-          docker pull ${{ env.GHCR_IMAGE }}:latest-${{ matrix.profile }}
+          REPO_OWNER="$(echo ${{ github.repository }} | cut -d'/' -f1)"
+          REPO_NAME="$(echo ${{ github.repository }} | cut -d'/' -f2)"
+          
+          # Fetch all package versions
+          TAGS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/users/${REPO_OWNER}/packages/container/${REPO_NAME}/versions" | \
+            jq -r '[.[] | .metadata.container.tags[] | select(endswith("${{ matrix.profile }}"))] | unique | .[]')
+          
+          echo "Found tags:"
+          echo "$TAGS"
+          
+          # Save tags to file
+          echo "$TAGS" > tags.txt
 
-      - name: Tag and push to Docker Hub
+      - name: Pull and push all tags to Docker Hub
         run: |
-          docker tag ${{ env.GHCR_IMAGE }}:latest-${{ matrix.profile }} ${{ env.DOCKERHUB_IMAGE }}:latest-${{ matrix.profile }}
-          docker push ${{ env.DOCKERHUB_IMAGE }}:latest-${{ matrix.profile }}
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              echo "Processing tag: $tag"
+              docker pull ${{ env.GHCR_IMAGE }}:${tag}
+              docker tag ${{ env.GHCR_IMAGE }}:${tag} ${{ env.DOCKERHUB_IMAGE }}:${tag}
+              docker push ${{ env.DOCKERHUB_IMAGE }}:${tag}
+            fi
+          done < tags.txt
 
       - name: Push "latest" tag for full profile
         if: matrix.profile == 'full'
         run: |
-          docker tag ${{ env.GHCR_IMAGE }}:latest-${{ matrix.profile }} ${{ env.DOCKERHUB_IMAGE }}:latest
+          docker pull ${{ env.GHCR_IMAGE }}:latest-full
+          docker tag ${{ env.GHCR_IMAGE }}:latest-full ${{ env.DOCKERHUB_IMAGE }}:latest
           docker push ${{ env.DOCKERHUB_IMAGE }}:latest
