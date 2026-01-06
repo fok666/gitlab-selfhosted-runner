@@ -42,6 +42,15 @@ jobs:
           gh variable set AGENT_VERSION --body "${{ steps.check.outputs.version }}"
           echo "✅ AGENT_VERSION updated successfully"
 
+      - name: Trigger Docker Image Build
+        if: steps.check.outputs.version != steps.current.outputs.version
+        env:
+          GH_TOKEN: ${{ secrets.REPO_ADMIN_TOKEN }}
+        run: |
+          echo "🚀 Triggering docker-image.yml workflow..."
+          gh workflow run docker-image.yml
+          echo "✅ docker-image.yml workflow triggered successfully"
+
       - name: Version up to date
         if: steps.check.outputs.version == steps.current.outputs.version
         run: |
