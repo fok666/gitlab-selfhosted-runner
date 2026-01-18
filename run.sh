@@ -79,7 +79,7 @@ echo "CPUs per runner: $MAX_CPU"
 echo ""
 
 # Launch runners
-for R in $(seq 1 $RUNNER_COUNT); do
+for R in $(seq 1 "$RUNNER_COUNT"); do
   RUNNER_NAME="gitlab-runner-$(hostname)-$R"
   CONFIG_DIR="/mnt/gitlab-runner${R}/config"
   DATA_DIR="/mnt/gitlab-runner${R}/data"
@@ -98,6 +98,10 @@ for R in $(seq 1 $RUNNER_COUNT); do
   fi
   
   # Run GitLab runner container
+  # SECURITY NOTE: --privileged mode grants extended privileges to the container.
+  # This is required for Docker-in-Docker but poses security risks.
+  # Consider using rootless Docker or Docker socket mounting as alternatives.
+  # If --privileged is not needed for your use case, remove this flag.
   docker run \
     --privileged \
     --tty \

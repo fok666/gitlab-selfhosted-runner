@@ -13,7 +13,7 @@ if [ -z "$GITLAB_TOKEN_FILE" ]; then
   fi
 
   GITLAB_TOKEN_FILE=/runner/.token
-  echo -n $GITLAB_TOKEN > "$GITLAB_TOKEN_FILE"
+  echo -n "$GITLAB_TOKEN" > "$GITLAB_TOKEN_FILE"
 fi
 
 unset GITLAB_TOKEN

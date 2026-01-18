@@ -12,7 +12,7 @@ STOP_SCRIPT='/opt/stop.sh'
 echo "Checking for VMSS scheduled events..."
 
 # Query Azure Instance Metadata Service for scheduled events
-curl -s "$METADATA_ENDPOINT" -H 'Metadata: true' > "$EVENTS_FILE"
+curl -sf "$METADATA_ENDPOINT" -H 'Metadata: true' > "$EVENTS_FILE"
 
 # Check if termination event is scheduled
 if grep -q "Terminate" "$EVENTS_FILE"; then
@@ -30,8 +30,10 @@ if grep -q "Terminate" "$EVENTS_FILE"; then
   EventId=$(jq -r '.Events[] | select(.EventType == "Terminate") | .EventId' "$EVENTS_FILE")
   if [ -n "$EventId" ]; then
     echo "Acknowledging event: $EventId"
-    curl -s -X POST "$METADATA_ENDPOINT" \
+    # Quote EventId to prevent command injection
+    curl -sf -X POST "$METADATA_ENDPOINT" \
       -H 'Metadata: true' \
+      -H 'Content-Type: application/json' \
       -d "{\"StartRequests\": [{\"EventId\": \"${EventId}\"}]}"
     echo "Event acknowledged successfully"
   fi

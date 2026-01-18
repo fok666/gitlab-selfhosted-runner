@@ -12,7 +12,7 @@ echo "Checking for EC2 spot instance termination notice..."
 
 # Query EC2 Instance Metadata Service for spot termination notice
 # Returns HTTP 404 if no termination notice is present
-RESPONSE=$(curl -s -f "$METADATA_ENDPOINT" 2>/dev/null || echo "")
+RESPONSE=$(curl -sf "$METADATA_ENDPOINT" 2>/dev/null || echo "")
 
 # Check if termination notice exists
 if [ -n "$RESPONSE" ]; then
