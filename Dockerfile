@@ -78,6 +78,9 @@ RUN echo "APT::Get::Assume-Yes \"true\";" > /etc/apt/apt.conf.d/90assumeyes \
     && rm -rf /var/lib/apt/lists/*
 
 # Install sudo...
+# SECURITY NOTE: NOPASSWD:ALL is configured for CI/CD automation purposes.
+# This allows the agent user to execute commands with sudo without password prompts.
+# This is a security trade-off for CI/CD runner functionality.
 RUN test "${ADD_SUDO}" = "1" || exit 0 && \
     apt-get update && apt-get install -y --no-install-recommends sudo \
     && apt clean \
@@ -106,7 +109,9 @@ RUN test "${ADD_JQ}" = "1" || exit 0 && \
 
 # Install latest Azure CLI https://learn.microsoft.com/cli/azure/install-azure-cli-linux
 RUN test "${ADD_AZURE_CLI}" = "1" || exit 0 && \
-    curl -sLS "https://aka.ms/InstallAzureCLIDeb" | bash \
+    curl -sLS "https://aka.ms/InstallAzureCLIDeb" -o /tmp/install-azure-cli.sh \
+    && bash /tmp/install-azure-cli.sh \
+    && rm /tmp/install-azure-cli.sh \
     && apt clean \
     && rm -rf /var/lib/apt/lists/* \
     && az config set extension.use_dynamic_install=yes_without_prompt \
@@ -175,11 +180,12 @@ RUN test "${ADD_OPENTOFU}" = "1" || exit 0 && \
 
 # Instal Terraspace https://terraspace.cloud/docs/install/
 RUN test "${ADD_TERRASPACE}" = "1" || exit 0 && \
-    curl -sL https://apt.boltops.com/boltops-key.public | apt-key add - \
-    && echo "deb https://apt.boltops.com stable main" > /etc/apt/sources.list.d/boltops.list \
+    curl -sL https://apt.boltops.com/boltops-key.public | gpg --dearmor -o /usr/share/keyrings/boltops-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/boltops-archive-keyring.gpg] https://apt.boltops.com stable main" > /etc/apt/sources.list.d/boltops.list \
     && apt-get update \
     && apt-get install -y terraspace \
-    && apt clean
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install HELM https://helm.sh/docs/intro/install/
 RUN test "${ADD_HELM}" = "1" || exit 0 && \
@@ -192,9 +198,10 @@ RUN test "${ADD_HELM}" = "1" || exit 0 && \
 
 # Install Kustomize https://kubectl.docs.kubernetes.io/installation/kustomize/
 RUN test "${ADD_KUSTOMIZE}" = "1" || exit 0 && \
-    curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash \
+    curl -sLf "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" -o /tmp/install_kustomize.sh \
+    && bash /tmp/install_kustomize.sh \
     && install -o root -g root -m 0755 kustomize /usr/local/bin/kustomize \
-    && rm -f kustomize
+    && rm -f kustomize /tmp/install_kustomize.sh
 
 # Install GitLab Runner
 WORKDIR /runner
