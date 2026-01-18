@@ -224,7 +224,7 @@ FROM pwsh-tools AS full-tools
 COPY --from=k8s-tools /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=k8s-tools /usr/local/bin/kubelogin /usr/local/bin/kubelogin
 COPY --from=k8s-tools /usr/local/bin/kustomize /usr/local/bin/kustomize
-COPY --from=k8s-tools /usr/local/bin/helm /usr/local/bin/helm
+COPY --from=k8s-tools /usr/bin/helm /usr/local/bin/helm
 
 # ============================================================================
 # FINAL STAGES - One per profile
