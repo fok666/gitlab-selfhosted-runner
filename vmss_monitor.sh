@@ -30,11 +30,12 @@ if grep -q "Terminate" "$EVENTS_FILE"; then
   EventId=$(jq -r '.Events[] | select(.EventType == "Terminate") | .EventId' "$EVENTS_FILE")
   if [ -n "$EventId" ]; then
     echo "Acknowledging event: $EventId"
-    # Quote EventId to prevent command injection
+    # Use jq to safely construct JSON payload to handle special characters
+    JSON_PAYLOAD=$(jq -n --arg eventId "$EventId" '{"StartRequests": [{"EventId": $eventId}]}')
     curl -sf -X POST "$METADATA_ENDPOINT" \
       -H 'Metadata: true' \
       -H 'Content-Type: application/json' \
-      -d "{\"StartRequests\": [{\"EventId\": \"${EventId}\"}]}"
+      -d "$JSON_PAYLOAD"
     echo "Event acknowledged successfully"
   fi
 else

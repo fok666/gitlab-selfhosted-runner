@@ -198,7 +198,7 @@ RUN test "${ADD_HELM}" = "1" || exit 0 && \
 
 # Install Kustomize https://kubectl.docs.kubernetes.io/installation/kustomize/
 RUN test "${ADD_KUSTOMIZE}" = "1" || exit 0 && \
-    curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" -o /tmp/install_kustomize.sh \
+    curl -sLf "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" -o /tmp/install_kustomize.sh \
     && bash /tmp/install_kustomize.sh \
     && install -o root -g root -m 0755 kustomize /usr/local/bin/kustomize \
     && rm -f kustomize /tmp/install_kustomize.sh
