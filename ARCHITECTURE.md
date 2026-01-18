@@ -336,8 +336,8 @@ xychart-beta
     line [5, 12, 20, 25, 28]
 ```
 
-- **Blue bars**: Multi-stage build (with cache)
-- **Red line**: Previous conditional build (with cache)
+- **Red bars**: Multi-stage build (with cache)
+- **Blue line**: Previous conditional build (with cache)
 
 ### Cache Storage Reduction
 

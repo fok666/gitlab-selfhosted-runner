@@ -88,18 +88,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends sudo \
 # ============================================================================
 FROM common AS docker-tools
 
-# Install Docker
-RUN apt-get update && apt-get install -y --no-install-recommends docker.io \
-    && apt clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install jq
-RUN apt-get update && apt-get install -y --no-install-recommends jq \
+# Install Docker and jq
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        docker.io \
+        jq \
     && apt clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install YQ - https://github.com/mikefarah/yq
-RUN ARCH=$([ "$TARGETARCH" = "x64" ] && echo "amd64" || echo "arm64") && \
+RUN ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "amd64" || echo "arm64") && \
     curl -sLO "https://github.com/mikefarah/yq/releases/download/v$(curl -sI https://github.com/mikefarah/yq/releases/latest | grep '^location:' | grep -Eo '[0-9]+[.][0-9]+[.][0-9]+')/yq_linux_${ARCH}" \
     && install -o root -g root -m 0755 yq_linux_${ARCH} /usr/local/bin/yq \
     && rm -f yq_linux_${ARCH}
@@ -111,13 +108,13 @@ RUN ARCH=$([ "$TARGETARCH" = "x64" ] && echo "amd64" || echo "arm64") && \
 FROM docker-tools AS k8s-tools
 
 # Install Kubectl - https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
-RUN ARCH=$([ "$TARGETARCH" = "x64" ] && echo "amd64" || echo "arm64") && \
+RUN ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "amd64" || echo "arm64") && \
     curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl" \
     && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
     && rm -f kubectl
 
 # Install Kubelogin https://github.com/Azure/kubelogin/releases
-RUN ARCH=$([ "$TARGETARCH" = "x64" ] && echo "amd64" || echo "arm64") && \
+RUN ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "amd64" || echo "arm64") && \
     curl -sLO "https://github.com/Azure/kubelogin/releases/download/v$(curl -sI https://github.com/Azure/kubelogin/releases/latest | grep '^location:' | grep -Eo '[0-9]+[.][0-9]+[.][0-9]+')/kubelogin-linux-${ARCH}.zip" \
     && unzip -j kubelogin-linux-${ARCH}.zip \
     && install -o root -g root -m 0755 kubelogin /usr/local/bin/kubelogin \
@@ -165,33 +162,23 @@ RUN curl -sLS "https://aka.ms/InstallAzureCLIDeb" -o /tmp/install-azure-cli.sh \
 # ============================================================================
 FROM cloud-tools AS iac-tools
 
-# Install Terraform https://developer.hashicorp.com/terraform/install
+# Install Terraform, OpenTofu, and Terraspace
+# Terraform: https://developer.hashicorp.com/terraform/install
+# OpenTofu: https://opentofu.org/docs/intro/install/
+# Terraspace: https://terraspace.cloud/docs/install/ (amd64 only)
+ARG TARGETARCH
 RUN curl -sL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/terraform-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/terraform-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/terraform.list \
-    && apt update \
-    && apt install -y terraform \
-    && apt clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install OpenTofu https://opentofu.org/docs/intro/install/
-RUN curl -fsSL https://packages.opentofu.org/opentofu/tofu/gpgkey | gpg --dearmor -o /usr/share/keyrings/opentofu-archive-keyring.gpg \
+    && curl -fsSL https://packages.opentofu.org/opentofu/tofu/gpgkey | gpg --dearmor -o /usr/share/keyrings/opentofu-archive-keyring.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/opentofu-archive-keyring.gpg] https://packages.opentofu.org/opentofu/tofu/any/ any main" > /etc/apt/sources.list.d/opentofu.list \
-    && apt update \
-    && apt install -y tofu \
-    && apt clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Terraspace https://terraspace.cloud/docs/install/
-# Note: Only supported on amd64 architecture
-ARG TARGETARCH
-RUN if [ "${TARGETARCH}" = "amd64" ]; then \
-    curl -sL https://apt.boltops.com/boltops-key.public | gpg --dearmor -o /usr/share/keyrings/boltops-archive-keyring.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/boltops-archive-keyring.gpg] https://apt.boltops.com stable main" > /etc/apt/sources.list.d/boltops.list \
+    && if [ "${TARGETARCH}" = "amd64" ]; then \
+        curl -sL https://apt.boltops.com/boltops-key.public | gpg --dearmor -o /usr/share/keyrings/boltops-archive-keyring.gpg \
+        && echo "deb [signed-by=/usr/share/keyrings/boltops-archive-keyring.gpg] https://apt.boltops.com stable main" > /etc/apt/sources.list.d/boltops.list; \
+    fi \
     && apt-get update \
-    && apt-get install -y terraspace \
-    && apt clean \
-    && rm -rf /var/lib/apt/lists/*; \
-    fi
+    && apt-get install -y --no-install-recommends terraform tofu $([ "${TARGETARCH}" = "amd64" ] && echo "terraspace") \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # ============================================================================
 # Stage 5: PWSH-TOOLS - Add PowerShell + modules (40% of profiles)
@@ -228,39 +215,55 @@ COPY --from=k8s-tools /usr/local/bin/kustomize /usr/local/bin/kustomize
 COPY --from=k8s-tools /usr/bin/helm /usr/local/bin/helm
 
 # ============================================================================
-# FINAL STAGES - One per profile
+# FINAL STAGES - One per profile with finalization
 # ============================================================================
 
 # Profile: minimal (only base + sudo)
 FROM common AS minimal
+COPY --chmod=0755 ./start.sh .
+COPY --chmod=0755 ./test-tools.sh .
+RUN useradd -m -d /home/runner runner \
+    && chown -R runner:runner /runner /home/runner
+USER runner
+ENV AGENT_ALLOW_RUNASROOT="false"
+ENTRYPOINT [ "./start.sh" ]
 
 # Profile: k8s (docker-tools + k8s components)
 FROM k8s-tools AS k8s
+COPY --chmod=0755 ./start.sh .
+COPY --chmod=0755 ./test-tools.sh .
+RUN useradd -m -d /home/runner runner \
+    && chown -R runner:runner /runner /home/runner
+USER runner
+ENV AGENT_ALLOW_RUNASROOT="false"
+ENTRYPOINT [ "./start.sh" ]
 
 # Profile: iac (docker-tools + cloud-tools + iac-tools)
 FROM iac-tools AS iac
+COPY --chmod=0755 ./start.sh .
+COPY --chmod=0755 ./test-tools.sh .
+RUN useradd -m -d /home/runner runner \
+    && chown -R runner:runner /runner /home/runner
+USER runner
+ENV AGENT_ALLOW_RUNASROOT="false"
+ENTRYPOINT [ "./start.sh" ]
 
 # Profile: iac-pwsh (iac + powershell)
 FROM pwsh-tools AS iac-pwsh
+COPY --chmod=0755 ./start.sh .
+COPY --chmod=0755 ./test-tools.sh .
+RUN useradd -m -d /home/runner runner \
+    && chown -R runner:runner /runner /home/runner
+USER runner
+ENV AGENT_ALLOW_RUNASROOT="false"
+ENTRYPOINT [ "./start.sh" ]
 
 # Profile: full (everything - k8s + iac + powershell)
 FROM full-tools AS full
-
-# ============================================================================
-# COMMON FINALIZATION - Applied to default target
-# ============================================================================
-
-# Agent Startup script
 COPY --chmod=0755 ./start.sh .
 COPY --chmod=0755 ./test-tools.sh .
-
-# Create runner user and set up home directory
 RUN useradd -m -d /home/runner runner \
     && chown -R runner:runner /runner /home/runner
-
 USER runner
-
-# Option to run the agent as root or not.
 ENV AGENT_ALLOW_RUNASROOT="false"
-
 ENTRYPOINT [ "./start.sh" ]
