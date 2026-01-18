@@ -54,6 +54,20 @@ Supported `--build-arg` variables are listed below to easily configure the runne
 - `ADD_TERRASPACE`: Installs `terraspace` tool
 - `ADD_SUDO`: Installs and enables `sudo` for the runner user group
 
+
+## Available Profiles
+
+Pre-configured profiles are available for different use cases:
+
+| Profile | Description | Included Tools |
+|---------|-------------|----------------|
+| **full** | Complete toolset with all available tools | Docker, Azure CLI, AWS CLI, PowerShell (with Azure & AWS modules), kubectl, kubelogin, kustomize, Helm, jq, yq, Terraform, OpenTofu, Terraspace |
+| **minimal** | Lightweight profile with essential tools only | Docker, jq, yq |
+| **k8s** | Kubernetes-focused profile | Docker, kubectl, kubelogin, kustomize, Helm, jq, yq |
+| **iac** | Infrastructure as Code profile with bash-based tools | Docker, Azure CLI, AWS CLI, Terraform, OpenTofu, Terraspace, jq, yq |
+| **iac-pwsh** | Infrastructure as Code profile with PowerShell support | Docker, Azure CLI, AWS CLI, PowerShell (with Azure & AWS modules), Terraform, OpenTofu, Terraspace, jq, yq |
+
+
 # References
 
 
