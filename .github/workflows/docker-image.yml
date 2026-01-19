@@ -92,26 +92,14 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: false
-          build-args: |
-            ADD_DOCKER=${{ matrix.profile.docker }}
-            ADD_AZURE_CLI=${{ matrix.profile.azure_cli }}
-            ADD_AWS_CLI=${{ matrix.profile.aws_cli }}
-            ADD_POWERSHELL=${{ matrix.profile.powershell }}
-            ADD_AZURE_PWSH_CLI=${{ matrix.profile.azure_pwsh }}
-            ADD_AWS_PWSH_CLI=${{ matrix.profile.aws_pwsh }}
-            ADD_KUBECTL=${{ matrix.profile.kubectl }}
-            ADD_KUBELOGIN=${{ matrix.profile.kubelogin }}
-            ADD_KUSTOMIZE=${{ matrix.profile.kustomize }}
-            ADD_HELM=${{ matrix.profile.helm }}
-            ADD_YQ=${{ matrix.profile.yq }}
-            ADD_JQ=${{ matrix.profile.jq }}
-            ADD_TERRAFORM=${{ matrix.profile.terraform }}
-            ADD_OPENTOFU=${{ matrix.profile.opentofu }}
-            ADD_TERRASPACE=${{ matrix.platform == 'linux/amd64' && matrix.profile.terraspace || 0 }}
-            ADD_SUDO=${{ matrix.profile.sudo }}
+          target: ${{ matrix.profile.name }}
           tags: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          cache-from: |
+            type=gha,scope=base-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+            type=gha,scope=common-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+            type=gha,scope=docker-tools-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+            type=gha,scope=${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           outputs: type=docker,dest=/tmp/image-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}.tar
 
@@ -371,28 +359,17 @@ jobs:
           context: .
           platforms: linux/${{ matrix.platform }}
           push: true
+          target: ${{ matrix.profile.name }}
           build-args: |
             AGENT_VERSION=${{ steps.versions.outputs.agent }}
-            ADD_DOCKER=${{ matrix.profile.docker }}
-            ADD_AZURE_CLI=${{ matrix.profile.azure_cli }}
-            ADD_AWS_CLI=${{ matrix.profile.aws_cli }}
-            ADD_POWERSHELL=${{ matrix.profile.powershell }}
-            ADD_AZURE_PWSH_CLI=${{ matrix.profile.azure_pwsh }}
-            ADD_AWS_PWSH_CLI=${{ matrix.profile.aws_pwsh }}
-            ADD_KUBECTL=${{ matrix.profile.kubectl }}
-            ADD_KUBELOGIN=${{ matrix.profile.kubelogin }}
-            ADD_KUSTOMIZE=${{ matrix.profile.kustomize }}
-            ADD_HELM=${{ matrix.profile.helm }}
-            ADD_YQ=${{ matrix.profile.yq }}
-            ADD_JQ=${{ matrix.profile.jq }}
-            ADD_TERRAFORM=${{ matrix.profile.terraform }}
-            ADD_OPENTOFU=${{ matrix.profile.opentofu }}
-            ADD_TERRASPACE=${{ matrix.platform == 'amd64' && matrix.profile.terraspace || 0 }}
-            ADD_SUDO=${{ matrix.profile.sudo }}
           tags: |
             ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.profile.name }}-${{ matrix.platform }}
+          cache-from: |
+            type=gha,scope=base-${{ matrix.platform }}
+            type=gha,scope=common-${{ matrix.platform }}
+            type=gha,scope=docker-tools-${{ matrix.platform }}
+            type=gha,scope=${{ matrix.profile.name }}-${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.profile.name }}-${{ matrix.platform }}
           sbom: true
           provenance: true
