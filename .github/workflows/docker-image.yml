@@ -104,7 +104,7 @@ jobs:
           outputs: type=docker,dest=/tmp/image-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}.tar
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: docker-image-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/image-${{ matrix.profile.name }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}.tar
@@ -490,7 +490,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-${{ matrix.profile.name }}
           path: sbom-spdx-${{ matrix.profile.name }}.json
