@@ -222,11 +222,12 @@ FROM full-tools AS glab-cli-tools
 
 ARG TARGETARCH
 # Install GitLab CLI https://gitlab.com/gitlab-org/cli
-RUN GLAB_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x86_64" || echo "arm64") \
+# https://gitlab.com/gitlab-org/cli/-/releases/v1.89.0/downloads/glab_1.89.0_linux_amd64.deb
+RUN GLAB_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "amd64" || echo "arm64") \
     && GLAB_VERSION=$(curl -sL "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/releases" | grep -o '"tag_name":"v[^"]*' | head -n1 | cut -d'"' -f4 | sed 's/^v//') \
-    && curl -sLO "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_Linux_${GLAB_ARCH}.deb" \
-    && dpkg -i "glab_${GLAB_VERSION}_Linux_${GLAB_ARCH}.deb" \
-    && rm "glab_${GLAB_VERSION}_Linux_${GLAB_ARCH}.deb"
+    && curl -sLO "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${GLAB_ARCH}.deb" \
+    && dpkg -i "glab_${GLAB_VERSION}_linux_${GLAB_ARCH}.deb" \
+    && rm "glab_${GLAB_VERSION}_linux_${GLAB_ARCH}.deb"
 
 # ============================================================================
 # FINAL STAGES - One per profile with finalization
