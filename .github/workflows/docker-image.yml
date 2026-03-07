@@ -54,7 +54,7 @@ jobs:
           else
             AGENT_VERSION=$(grep '^ARG AGENT_VERSION=' Dockerfile | cut -d'=' -f2)
           fi
-          OS_VERSION=$(grep '^FROM ubuntu:' Dockerfile | cut -d':' -f2)
+          OS_VERSION=$(grep '^FROM ubuntu:' Dockerfile | cut -d':' -f2 | cut -d' ' -f1)
           echo "agent=${AGENT_VERSION}" >> $GITHUB_OUTPUT
           echo "os=${OS_VERSION}" >> $GITHUB_OUTPUT
 
@@ -322,7 +322,7 @@ jobs:
           else
             AGENT_VERSION=$(grep '^ARG AGENT_VERSION=' Dockerfile | cut -d'=' -f2)
           fi
-          OS_VERSION=$(grep '^FROM ubuntu:' Dockerfile | cut -d':' -f2)
+          OS_VERSION=$(grep '^FROM ubuntu:' Dockerfile | cut -d':' -f2 | cut -d' ' -f1)
           echo "agent=${AGENT_VERSION}" >> $GITHUB_OUTPUT
           echo "os=${OS_VERSION}" >> $GITHUB_OUTPUT
 
@@ -416,7 +416,7 @@ jobs:
         id: versions
         run: |
           AGENT_VERSION=$(grep '^ARG AGENT_VERSION=' Dockerfile | cut -d'=' -f2)
-          OS_VERSION=$(grep '^FROM ubuntu:' Dockerfile | cut -d':' -f2)
+          OS_VERSION=$(grep '^FROM ubuntu:' Dockerfile | cut -d':' -f2 | cut -d' ' -f1)
           echo "agent=${AGENT_VERSION}" >> $GITHUB_OUTPUT
           echo "os=${OS_VERSION}" >> $GITHUB_OUTPUT
 
