@@ -215,6 +215,20 @@ COPY --from=k8s-tools /usr/local/bin/kustomize /usr/local/bin/kustomize
 COPY --from=k8s-tools /usr/bin/helm /usr/local/bin/helm
 
 # ============================================================================
+# Stage 6b: GLAB-CLI-TOOLS - Add GitLab CLI (full profile only)
+# Used by: full
+# ============================================================================
+FROM full-tools AS glab-cli-tools
+
+ARG TARGETARCH
+# Install GitLab CLI https://gitlab.com/gitlab-org/cli
+RUN GLAB_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "amd64" || echo "arm64") \
+    && GLAB_VERSION=$(curl -sI https://github.com/gitlab-org/cli/releases/latest | grep '^location:' | grep -Eo '[0-9]+[.][0-9]+[.][0-9]+') \
+    && curl -sLO "https://github.com/gitlab-org/cli/releases/download/v${GLAB_VERSION}/glab_${GLAB_VERSION}_linux_${GLAB_ARCH}.deb" \
+    && dpkg -i "glab_${GLAB_VERSION}_linux_${GLAB_ARCH}.deb" \
+    && rm "glab_${GLAB_VERSION}_linux_${GLAB_ARCH}.deb"
+
+# ============================================================================
 # FINAL STAGES - One per profile with finalization
 # ============================================================================
 
@@ -258,8 +272,8 @@ USER runner
 ENV AGENT_ALLOW_RUNASROOT="false"
 ENTRYPOINT [ "./start.sh" ]
 
-# Profile: full (everything - k8s + iac + powershell)
-FROM full-tools AS full
+# Profile: full (everything - k8s + iac + powershell + gitlab cli)
+FROM glab-cli-tools AS full
 COPY --chmod=0755 ./start.sh .
 COPY --chmod=0755 ./test-tools.sh .
 RUN useradd -m -d /home/runner runner \
