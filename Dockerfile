@@ -223,8 +223,8 @@ FROM full-tools AS glab-cli-tools
 ARG TARGETARCH
 # Install GitLab CLI https://gitlab.com/gitlab-org/cli
 RUN GLAB_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x86_64" || echo "arm64") \
-    && GLAB_VERSION=$(curl -sLIo /dev/null -w '%{url_effective}' https://github.com/gitlab-org/cli/releases/latest | grep -Eo '[0-9]+[.][0-9]+[.][0-9]+') \
-    && curl -sLO "https://github.com/gitlab-org/cli/releases/download/v${GLAB_VERSION}/glab_${GLAB_VERSION}_Linux_${GLAB_ARCH}.deb" \
+    && GLAB_VERSION=$(curl -sL "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/releases" | grep -o '"tag_name":"v[^"]*' | head -n1 | cut -d'"' -f4 | sed 's/^v//') \
+    && curl -sLO "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_Linux_${GLAB_ARCH}.deb" \
     && dpkg -i "glab_${GLAB_VERSION}_Linux_${GLAB_ARCH}.deb" \
     && rm "glab_${GLAB_VERSION}_Linux_${GLAB_ARCH}.deb"
 
