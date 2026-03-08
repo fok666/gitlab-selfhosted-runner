@@ -135,10 +135,10 @@ export GITLAB_TOKEN="xxxxxxxxxxxxxxxxxxxxxxxxxxx"
 export RUNNER_TAGS="docker,linux"
 
 # Start the runners in privileged mode, one runner for each vCPU (default), using the parameters above:
-sudo ./run.sh fok666/gitlab-runner:latest $GITLAB_URL $GITLAB_TOKEN $RUNNER_TAGS
+sudo ./run.sh fok666/gitlab-runner:latest-full $GITLAB_URL $GITLAB_TOKEN $RUNNER_TAGS
 
 # Or specify a custom number of runners (e.g., 4 runners):
-sudo ./run.sh fok666/gitlab-runner:latest $GITLAB_URL $GITLAB_TOKEN $RUNNER_TAGS 4
+sudo ./run.sh fok666/gitlab-runner:latest-full $GITLAB_URL $GITLAB_TOKEN $RUNNER_TAGS 4
 ```
 
 
