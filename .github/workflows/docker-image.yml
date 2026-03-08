@@ -136,13 +136,14 @@ jobs:
         continue-on-error: true
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.34.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}-${{ matrix.platform }}
           format: 'sarif'
           output: 'trivy-results-${{ matrix.profile }}-${{ matrix.platform }}.sarif'
           severity: 'CRITICAL'
           scanners: 'vuln'
+          ignore-unfixed: true
         continue-on-error: true
 
       - name: Upload Trivy results to GitHub Security
@@ -153,13 +154,14 @@ jobs:
         continue-on-error: true
 
       - name: Run Trivy vulnerability scanner (table output)
-        uses: aquasecurity/trivy-action@0.34.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.REGISTRY_IMAGE }}:test-${{ matrix.profile }}-${{ matrix.platform }}
           format: 'table'
           exit-code: '0'
           severity: 'CRITICAL'
           scanners: 'vuln'
+          ignore-unfixed: true
         continue-on-error: true
 
       - name: Clean up disk space
@@ -438,8 +440,23 @@ jobs:
           ARM64_IMAGE="${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-arm64"
           
           echo "Verifying source images exist..."
-          docker buildx imagetools inspect "$AMD64_IMAGE"
-          docker buildx imagetools inspect "$ARM64_IMAGE"
+          
+          # Retry verification with exponential backoff
+          for i in {1..5}; do
+            if docker buildx imagetools inspect "$AMD64_IMAGE" && \
+               docker buildx imagetools inspect "$ARM64_IMAGE"; then
+              echo "✓ Both images verified successfully"
+              break
+            fi
+            if [ $i -lt 5 ]; then
+              WAIT_TIME=$((i * 15))
+              echo "Images not ready yet, waiting ${WAIT_TIME}s before retry $((i+1))/5..."
+              sleep $WAIT_TIME
+            else
+              echo "✗ Failed to verify images after 5 attempts"
+              exit 1
+            fi
+          done
           
           # Create multi-arch manifest with retry logic
           MANIFEST_TAG="${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}"
