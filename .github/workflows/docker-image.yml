@@ -36,8 +36,8 @@ jobs:
     name: Extract Versions
     runs-on: ubuntu-latest
     outputs:
-      agent: ${{ needs.extract-versions.outputs.agent }}
-      os: ${{ needs.extract-versions.outputs.os }}
+      agent: ${{ steps.versions.outputs.agent }}
+      os: ${{ steps.versions.outputs.os }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v6
