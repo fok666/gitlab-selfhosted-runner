@@ -348,10 +348,6 @@ jobs:
           images: |
             ${{ env.GHCR_IMAGE }}
 
-      - name: Get the date
-        id: date
-        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
-
       - name: Clean up disk space before build
         run: |
           docker system prune -af --volumes
@@ -368,7 +364,7 @@ jobs:
           build-args: |
             AGENT_VERSION=${{ steps.versions.outputs.agent }}
           tags: |
-            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-${{ matrix.platform }}
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ github.run_id }}-${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: |
             type=gha,scope=base-${{ matrix.platform }}
@@ -432,25 +428,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get the date
-        id: date
-        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
-
       - name: Create and push multi-arch manifest
         run: |
           # Clean up disk space before creating manifests
           docker system prune -af
           
           # Verify both images exist before creating manifest
-          AMD64_IMAGE="${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-amd64"
-          ARM64_IMAGE="${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}-arm64"
+          AMD64_IMAGE="${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ github.run_id }}-amd64"
+          ARM64_IMAGE="${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ github.run_id }}-arm64"
           
           echo "Verifying source images exist..."
           docker buildx imagetools inspect "$AMD64_IMAGE"
           docker buildx imagetools inspect "$ARM64_IMAGE"
           
           # Create multi-arch manifest with retry logic
-          MANIFEST_TAG="${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}"
+          MANIFEST_TAG="${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ github.run_id }}"
           
           for i in {1..3}; do
             if docker buildx imagetools create \
@@ -479,7 +471,7 @@ jobs:
           
           docker buildx imagetools create \
             -t ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-${{ matrix.profile.name }} \
-            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ steps.date.outputs.date }}
+            ${{ env.GHCR_IMAGE }}:${{ steps.versions.outputs.agent }}-ubuntu${{ steps.versions.outputs.os }}-${{ matrix.profile.name }}-${{ github.run_id }}
           
           docker buildx imagetools create \
             -t ${{ env.GHCR_IMAGE }}:latest-${{ matrix.profile.name }} \
