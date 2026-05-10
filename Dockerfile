@@ -6,7 +6,7 @@
 # ============================================================================
 # Stage 0: BASE - Common dependencies + GitLab Runner (100% shared)
 # ============================================================================
-FROM ubuntu:24.04 AS base
+FROM ubuntu:26.04 AS base
 
 ARG TARGETARCH
 ARG AGENT_VERSION=18.7.1
