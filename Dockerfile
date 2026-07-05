@@ -6,7 +6,7 @@
 # ============================================================================
 # Stage 0: BASE - Common dependencies + GitLab Runner (100% shared)
 # ============================================================================
-FROM ubuntu:24.04 AS base
+FROM ubuntu:26.04 AS base
 
 ARG TARGETARCH
 ARG AGENT_VERSION=18.7.1
@@ -17,7 +17,7 @@ LABEL org.opencontainers.image.licenses=MIT
 LABEL org.opencontainers.image.authors="Fernando Korndorfer"
 LABEL org.opencontainers.image.version="${AGENT_VERSION}"
 LABEL org.opencontainers.image.base.name="ubuntu"
-LABEL org.opencontainers.image.base.version="24.04"
+LABEL org.opencontainers.image.base.version="26.04"
 
 USER root
 
@@ -51,7 +51,7 @@ RUN echo "APT::Get::Assume-Yes \"true\";" > /etc/apt/apt.conf.d/90assumeyes \
     libssl-dev\
     libssl3 \
     liblttng-ust-common1t64 \
-    liblttng-ust-ctl5t64 \
+    liblttng-ust-ctl6 \
     liblttng-ust1t64 \
     libnuma1 \
     libdpkg-perl \
